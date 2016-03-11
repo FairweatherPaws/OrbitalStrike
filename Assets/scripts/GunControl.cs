@@ -6,14 +6,13 @@ using System.Collections.Generic;
 public class GunControl : MonoBehaviour
 {
 
-    public GameObject gun, gunControl, planet, mouseCollider, rod, scoreField, cloudBlocker, guidePrefab;
+    public GameObject gun, gunControl, planet, mouseCollider, rod, scoreField, cloudBlocker;
     public Camera mainCamera, rodCameraPrefab, rodCamera, freeCamera, checkCamera;
     private int score, extrapolationRange;
     //private int explosionZincrement;
-    private GameObject[] reticules, guides;
+    private GameObject[] reticules;
     private LineRenderer lineRend;
-    private float gravityMultiplier, thrust;
-    public float speedMultiplier;
+    private float gravityMultiplier, speedMultiplier, thrust;
     public RenderTexture cloudLayer;
 
 
@@ -23,11 +22,11 @@ public class GunControl : MonoBehaviour
     {
         //UnityEngine.Cursor.visible = false;
 
-        speedMultiplier = .3f;
+        speedMultiplier = 0.03f;
 
         thrust = 1500;
         gravityMultiplier = 30f;
-        extrapolationRange = 10;
+        extrapolationRange = 5;
         Physics.IgnoreLayerCollision(0, 8);
         //explosionZincrement = 0;
         reticules = GameObject.FindGameObjectsWithTag("Reticule");
@@ -35,19 +34,6 @@ public class GunControl : MonoBehaviour
         lineRend.SetVertexCount(extrapolationRange);
         lineRend.SetColors(new Color(1, 1, 1, 1), new Color(1, 1, 1, 0));
         lineRend.material.mainTextureScale = new Vector2(extrapolationRange, 1);
-
-        guides = new GameObject[extrapolationRange];
-
-        for (int i = 0; i < guides.Length; i++)
-        {
-            guides[i] = Instantiate(guidePrefab, Vector3.zero, Quaternion.identity) as GameObject;
-            guides[i].transform.Rotate(new Vector3(-90, 0, 0));
-            guides[i].transform.parent = transform;
-            float t = (i * 10 / extrapolationRange * 10);
-            t /= 100;
-            guides[i].GetComponent<Renderer>().material.SetColor("_EmissionColor", new Color(1 - t, 1 - t, 1 - t));
-            guides[i].GetComponent<Renderer>().material.color = new Color(1, 1, 1, 1 - t);
-        }
     }
 
     // Update is called once per frame
@@ -60,41 +46,11 @@ public class GunControl : MonoBehaviour
 
         RaycastHit hit;
         Ray ray = mainCamera.ScreenPointToRay(Input.mousePosition);
-
-        int layerMask = 1 << 8;
-
-        if (Physics.Raycast(ray, out hit, 100f, layerMask) && (rodCamera == null || !rodCamera.enabled))
+        if (Physics.Raycast(ray, out hit))
         {
             Vector3 pointHit = hit.point;
             transform.LookAt(pointHit);
 
-            Vector3 startPoint = gun.transform.position;
-
-            int i = 2;
-
-            guides[0].transform.position = startPoint + gun.transform.up * 5f;
-            guides[1].transform.position = startPoint + gun.transform.up * 10f;
-
-            for (; i < guides.Length; i++)
-            {
-                Vector3 gmo = guides[i - 1].transform.position;
-                Vector3 gmt = guides[i - 2].transform.position;
-                Vector3 gpos = gmo + (gmo - gmt);
-
-                float gravity = gravityMultiplier / Mathf.Pow(Vector3.Distance((gmo + gpos) / 2, planet.transform.position), 2);
-
-                gpos += (planet.transform.position - (gmo + gpos) / 2) * gravity;
-
-                if (Vector3.Distance(gpos, planet.transform.position) < 20 || Vector3.Distance(gmo, planet.transform.position) < 20)
-                {
-                    gpos = planet.transform.position;
-                }
-
-                guides[i].transform.position = gpos;
-                guides[i].transform.LookAt(guides[i - 1].transform.position);
-                guides[i].transform.Rotate(new Vector3(90, 0, 0));
-            }
-            /*
             Vector3[] lrpoints = new Vector3[extrapolationRange];
 
             Vector3 startPoint = gun.transform.position;
@@ -102,22 +58,17 @@ public class GunControl : MonoBehaviour
             int i = 2;
 
             lrpoints[0] = startPoint;
-            lrpoints[1] = startPoint + gun.transform.up * i * 2.5f;
+            lrpoints[1] = startPoint + gun.transform.up * i * 3;
 
             while (i < extrapolationRange)
             {
 
-
                 lrpoints[i] = lrpoints[i - 1] + (lrpoints[i - 1] - lrpoints[i - 2]);
 
-                float gravity = gravityMultiplier / Mathf.Pow(Vector3.Distance((lrpoints[i - 1] + lrpoints[i]) / 2, planet.transform.position), 2);
+                float gravity = Mathf.Pow(gravityMultiplier / Vector3.Distance(lrpoints[i], planet.transform.position), 2);
 
-                lrpoints[i] += (planet.transform.position - (lrpoints[i - 1] + lrpoints[i]) / 2) * gravity;
+                lrpoints[i] -= lrpoints[i] * gravity * 0.032f;
 
-                if (Vector3.Distance(lrpoints[i], planet.transform.position) < 20)
-                {
-                    lrpoints[i] = lrpoints[i - 1];
-                }
 
                 // lrpoints[i] = startPoint - new Vector3(-pointHit.x, -pointHit.y, pointHit.z) * (0.05f * i);
                 // lrpoints[i] = startPoint - pointHit * (0.05f * i);
@@ -125,93 +76,37 @@ public class GunControl : MonoBehaviour
                 i++;
             }
             lineRend.SetPositions(lrpoints);
-            */
         }
 
         if (Input.GetButtonDown("Fire1")) // && mainCamera.enabled
         {
-            //for (int i = 0; i < 5; i++)
-            //{
-            //    GameObject newRod = Instantiate(rod, new Vector3(Random.Range(-5f, 5f), Random.Range(-5f, 5f), gun.transform.position.z), gun.transform.rotation) as GameObject;
-            //    newRod.GetComponent<rodScript>().giveThrust(thrust * speedMultiplier, gravityMultiplier * speedMultiplier, 0, gameObject, checkCamera, true);
-            //}
+            for (int i = 0; i < 5; i++)
+            {
+                GameObject newRod = Instantiate(rod, new Vector3(Random.Range(-5f, 5f), Random.Range(-5f, 5f), gun.transform.position.z), gun.transform.rotation) as GameObject;
+                newRod.GetComponent<rodScript>().giveThrust(thrust * speedMultiplier, gravityMultiplier * speedMultiplier, 0, gameObject, checkCamera, true);
+            }
 
-            GameObject newRod = Instantiate(rod, new Vector3(0, 0, gun.transform.position.z), gun.transform.rotation) as GameObject;
-            newRod.GetComponent<rodScript>().giveThrust(thrust, gravityMultiplier, speedMultiplier, 0, gameObject, checkCamera, true);
+            //GameObject newRod = Instantiate(rod, new Vector3(0,0, gun.transform.position.z), gun.transform.rotation) as GameObject;
+            //newRod.GetComponent<rodScript>().giveThrust(thrust * speedMultiplier, gravityMultiplier * speedMultiplier, 0, gameObject, checkCamera, true);
             //explosionZincrement++;
 
-            if (rodCamera == null)
-            {
-                rodCamera = Instantiate(rodCameraPrefab, gun.transform.position * 1.01f, newRod.transform.rotation) as Camera;
-                rodCamera.enabled = false;
 
-            }
-            else
-            {
-                rodCamera.transform.position = gun.transform.position * 1.01f;
-                rodCamera.transform.rotation = newRod.transform.rotation;
-            }
+            //rodCamera = Instantiate(rodCameraPrefab, gun.transform.position * 1.01f, newRod.transform.rotation) as Camera;
 
-            rodCamera.transform.Rotate(new Vector3(-90, 0, 0));
+            //rodCamera.transform.Rotate(new Vector3(-90, 0, 0));
 
-            rodCamera.transform.parent = newRod.transform;
+            //rodCamera.transform.parent = newRod.transform;
 
-            newRod.GetComponent<rodScript>().giveCamera(rodCamera);
+
+            //  mainCamera.enabled = false;
+            //  rodCamera.enabled = true;
 
         }
 
         if (Input.GetKeyDown(KeyCode.Q))
         {
-
-            if (mainCamera.enabled)
-            {
-                mainCamera.enabled = false;
-                freeCamera.enabled = true;
-                if (rodCamera != null)
-                {
-                    rodCamera.enabled = false;
-                }
-            }
-            else if (freeCamera.enabled)
-            {
-                mainCamera.enabled = true;
-                freeCamera.enabled = false;
-                if (rodCamera != null)
-                {
-                    rodCamera.enabled = true;
-                    mainCamera.enabled = false;
-                }
-            }
-            else if (rodCamera != null && rodCamera.enabled)
-            {
-                mainCamera.enabled = true;
-                freeCamera.enabled = false;
-
-                rodCamera.enabled = false;
-
-            }
-        }
-
-        if (Input.GetKeyDown(KeyCode.T))
-        {
-            float t = 1f;
-            if (speedMultiplier < 10)
-            {
-                t = 10;
-            }
-            else
-            {
-                t = 0.001f;
-            }
-            speedMultiplier *= t;
-            GameObject[] rods = GameObject.FindGameObjectsWithTag("Rod");
-            if (rods != null && rods.Length > 0)
-            {
-                foreach (GameObject r in rods)
-                {
-                    r.GetComponent<rodScript>().adjustTimeflow(t);
-                }
-            }
+            mainCamera.enabled = !mainCamera.enabled;
+            freeCamera.enabled = !freeCamera.enabled;
         }
     }
 
@@ -258,7 +153,7 @@ public class GunControl : MonoBehaviour
         float xAngle = Vector3.Angle(new Vector3(0, 0, z), new Vector3(x, 0, z));
 
 
-
+        
 
 
         float mapX = 0;
@@ -268,7 +163,7 @@ public class GunControl : MonoBehaviour
         // green up, blue forward, red right
         if (z >= 0)
         {
-
+            
 
             if (x >= 0)
             {
@@ -278,7 +173,7 @@ public class GunControl : MonoBehaviour
             else
             {
                 xAngle += 120 * planet.transform.rotation.y;
-                mapX = -xAngle * (31f / 180); // * (25 / adjust);
+                mapX = - xAngle * (31f / 180); // * (25 / adjust);
                 // -31 vs -10, -5 actual
             }
         }
@@ -319,14 +214,5 @@ public class GunControl : MonoBehaviour
         // -0, 0, -z = equator right
     }
 
-    public void returnRodCamera(GameObject go)
-    {
-        if (rodCamera.transform.parent == go.transform)
-        {
-            rodCamera.transform.parent = null;
-            rodCamera.enabled = false;
-            mainCamera.enabled = true;
-            rodCamera.transform.position = new Vector3(0, 0, 0);
-        }
-    }
+
 }

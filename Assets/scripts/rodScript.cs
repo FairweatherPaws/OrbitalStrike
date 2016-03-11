@@ -7,17 +7,16 @@ public class rodScript : MonoBehaviour
     public bool thrusted = true;
     private int explosionZIndex;
     public GameObject explosionPrefab, explosionLight, explosionDecal, pulsePrefab;
-    public Camera checkCamera, myRodCamera;
+    public Camera checkCamera;
     private GameObject gunController, planet;
     private Rigidbody rBod;
-    private float gravityMultiplier, deltaV, thrustModifier, speedMultiplier;
-    private bool spawnMore, inAtmosphere;
+    private float gravityMultiplier, deltaV, thrustModifier;
+    private bool spawnMore;
 
     // Use this for initialization
     void Start()
     {
         rBod = GetComponent<Rigidbody>();
-        inAtmosphere = false;
 
         deltaV = rBod.velocity.magnitude;
     }
@@ -28,13 +27,13 @@ public class rodScript : MonoBehaviour
 
         if (!thrusted)
         {
-            rBod.AddRelativeForce(Vector3.up * thrustModifier * speedMultiplier);
+            rBod.AddRelativeForce(Vector3.up * thrustModifier);
             thrusted = true;
         }
         else
         {
             float gravity = Mathf.Pow(gravityMultiplier / Vector3.Distance(transform.position, planet.transform.position), 2);
-            rBod.AddForce((planet.transform.position - transform.position) * gravity);
+            rBod.AddForce(-transform.position * gravity);
             transform.up = rBod.velocity;
             //if (spawnMore)
             //{
@@ -58,7 +57,6 @@ public class rodScript : MonoBehaviour
 
         deltaV = rBod.velocity.magnitude;
 
-
         if (Input.GetKeyDown(KeyCode.B))
         {
             rBod.velocity *= 0.7f;
@@ -72,35 +70,18 @@ public class rodScript : MonoBehaviour
         {
             rBod.velocity *= 1.3f;
         }
-
-        if (inAtmosphere)
-        {
-            rBod.velocity *= 0.95f;
-        }
     }
 
-    public void giveThrust(float n, float g, float sm, int z, GameObject gc, Camera c, bool original)
+    public void giveThrust(float n, float g, int z, GameObject gc, Camera c, bool original)
     {
         checkCamera = c;
-        speedMultiplier = sm;
-        gravityMultiplier = g * sm;
+        gravityMultiplier = g;
         thrustModifier = n;
         thrusted = false;
         explosionZIndex = z;
         gunController = gc;
         planet = gc.GetComponent<GunControl>().getPlanetGO();
         spawnMore = original;
-    }
-
-    public void giveCamera(Camera c)
-    {
-        myRodCamera = c;
-    }
-
-    public void adjustTimeflow(float t)
-    {
-        gravityMultiplier *= t;
-        rBod.velocity *= t;
     }
 
     void OnCollisionEnter(Collision collision)
@@ -118,8 +99,6 @@ public class rodScript : MonoBehaviour
 
         if (collision.gameObject == planet)
         {
-
-
 
             GameObject newBoom = Instantiate(explosionPrefab, (cp.point - planetPos) * (25 / factor) * 1.005f, Quaternion.identity) as GameObject;
             newBoom.transform.rotation = Quaternion.LookRotation((transform.position - planetPos) * 2);
@@ -155,16 +134,6 @@ public class rodScript : MonoBehaviour
             decal.transform.rotation = Quaternion.LookRotation((cp.point - collision.gameObject.transform.position) * 2);
             decal.transform.Rotate(new Vector3(90, 0, 0));
 
-            
-            if (deltaV / (50 * speedMultiplier) < 1)
-            {
-                decal.transform.localScale *= deltaV / (50 * speedMultiplier);
-            } else
-            {
-                decal.gameObject.GetComponent<decalScript>().giveSize(deltaV / (50 * speedMultiplier));
-                
-            }
-
             RaycastHit hit;
 
             Ray ray = new Ray((cp.point - planetPos) * 2, (planetPos - cp.point) * 2);
@@ -175,20 +144,22 @@ public class rodScript : MonoBehaviour
 
             if (Physics.Raycast(ray, out hit, Vector3.Distance(planetPos, cp.point) * 2, layerMask))
             {
+                Debug.Log("ding");
                 //Component[] rends = hit.transform.GetComponentsInChildren<Renderer>();
                 //foreach (Renderer r in rends)
                 //{
-                Renderer r = hit.transform.GetComponent<Renderer>();
-                Texture2D tex = r.material.mainTexture as Texture2D;
-                Vector2 pixelUV = hit.textureCoord;
-                pixelUV.x *= tex.width;
-                pixelUV.y *= tex.height;
-                Color targetColour = tex.GetPixel((int)pixelUV.x, (int)pixelUV.y);
-                if (targetColour.a < 0.5f)
-                {
-                    splash = true;
-                }
-
+                Renderer r = hit.transform.GetComponent<Renderer>(); 
+                    Texture2D tex = r.material.mainTexture as Texture2D;
+                    Vector2 pixelUV = hit.textureCoord;
+                    pixelUV.x *= tex.width;
+                    pixelUV.y *= tex.height;
+                    Color targetColour = tex.GetPixel((int)pixelUV.x, (int)pixelUV.y);
+                    Debug.Log(targetColour + " @ " + pixelUV + " of " + r.material.mainTexture);
+                    if (targetColour.a < 0.5f)
+                    {
+                        splash = true;
+                    }
+                    
                 //}
             }
 
@@ -196,40 +167,21 @@ public class rodScript : MonoBehaviour
 
             if (!splash)
             {
-                decal.transform.parent = collision.gameObject.transform;
+                decal.transform.parent = collision.gameObject.transform;    
             }
             else
             {
                 DestroyObject(decal.gameObject);
             }
 
-            gunController.GetComponent<GunControl>().returnRodCamera(gameObject);
+
             DestroyObject(gameObject);
         }
 
         if (Vector3.Distance(transform.position, planet.transform.position) < 20)
         {
-
-            gunController.GetComponent<GunControl>().returnRodCamera(gameObject);
-
             DestroyObject(gameObject);
         }
 
-    }
-
-    void OnTriggerEnter(Collider c)
-    {
-        if (c.gameObject.tag == "Atmosphere")
-        {
-            inAtmosphere = true;
-        }
-    }
-
-    void OnTriggerExit(Collider c)
-    {
-        if (c.gameObject.tag == "Atmosphere")
-        {
-            inAtmosphere = false;
-        }
     }
 }
